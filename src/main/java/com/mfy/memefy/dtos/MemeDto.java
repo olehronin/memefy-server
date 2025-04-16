@@ -8,18 +8,50 @@ import java.util.Objects;
  * @author Oleh Ivasiuk
  */
 public class MemeDto {
-    private String id;
+    private Long id;
     private String name;
     private String imageUrl;
-    private String likes;
+    private Long likes;
 
     public MemeDto() {
     }
 
-    public MemeDto(String id, String name, String imageUrl, String likes) {
+    public MemeDto(Long id, String name, String imageUrl, Long likes) {
         this.id = id;
         this.name = name;
         this.imageUrl = imageUrl;
+        this.likes = likes;
+    }
+
+    public Long getId() {
+        return id;
+    }
+
+    public void setId(Long id) {
+        this.id = id;
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    public void setName(String name) {
+        this.name = name;
+    }
+
+    public String getImageUrl() {
+        return imageUrl;
+    }
+
+    public void setImageUrl(String imageUrl) {
+        this.imageUrl = imageUrl;
+    }
+
+    public Long getLikes() {
+        return likes;
+    }
+
+    public void setLikes(Long likes) {
         this.likes = likes;
     }
 
@@ -39,10 +71,10 @@ public class MemeDto {
     @Override
     public String toString() {
         final StringBuilder sb = new StringBuilder("MemeDto{");
-        sb.append("id='").append(id).append('\'');
+        sb.append("id=").append(id);
         sb.append(", name='").append(name).append('\'');
         sb.append(", imageUrl='").append(imageUrl).append('\'');
-        sb.append(", likes='").append(likes).append('\'');
+        sb.append(", likes=").append(likes);
         sb.append('}');
         return sb.toString();
     }
