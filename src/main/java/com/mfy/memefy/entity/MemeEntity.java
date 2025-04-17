@@ -25,6 +25,9 @@ public class MemeEntity extends BaseAuditable {
     @Column(name = "likes", nullable = false)
     private Long likes;
 
+    @Column(name = "source", nullable = false)
+    private String source;
+
     public MemeEntity() {
     }
 
@@ -56,5 +59,13 @@ public class MemeEntity extends BaseAuditable {
 
     public void setLikes(Long likes) {
         this.likes = likes;
+    }
+
+    public String getSource() {
+        return source;
+    }
+
+    public void setSource(String source) {
+        this.source = source;
     }
 }

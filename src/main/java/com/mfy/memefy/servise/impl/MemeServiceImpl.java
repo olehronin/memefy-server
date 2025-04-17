@@ -12,7 +12,6 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
-import java.util.Random;
 
 /**
  * The {@link MemeServiceImpl} class
@@ -23,6 +22,8 @@ import java.util.Random;
 public class MemeServiceImpl implements MemeService {
     private static final int MAX_MEMES = 10;
     private static final int MAX_NAME_LENGTH = 100;
+    public static final String IMGFLIP = "IMGFLIP";
+    public static final String REDDIT = "REDDIT";
 
     private final MemeRepository memeRepository;
     private final MemeMapper memeMapper;
@@ -46,13 +47,14 @@ public class MemeServiceImpl implements MemeService {
 
     @PostConstruct
     public void init() {
-        fetchPosts(useImgByDefault);
+        fetchPostsIfEmpty(useImgByDefault);
     }
 
     @Override
     public List<MemeDto> getAllMemes(boolean useImg) {
-        fetchPosts(useImg);
-        return memeRepository.findAll().stream()
+        String source = useImg ? IMGFLIP : REDDIT;
+        fetchPostsIfEmpty(useImg);
+        return memeRepository.findAllBySource(source).stream()
                 .map(memeMapper::toMemeDto)
                 .toList();
     }
@@ -81,14 +83,22 @@ public class MemeServiceImpl implements MemeService {
                 .orElseThrow(() -> new EntityNotFoundException("Meme Entity with id `%s` not found".formatted(id)));
     }
 
-    private void fetchPosts(boolean useImg) {
-        memeRepository.deleteAll();
-        memeRepository.resetSequence();
+    private void fetchPostsIfEmpty(boolean useImg) {
+        if (memeRepository.countBySource(useImg ? IMGFLIP : REDDIT) >= MAX_MEMES) {
+            return;
+        }
 
         List<MemeEntity> memes = useImg
                 ? imgflipClient.fetchMemes(MAX_MEMES)
                 : redditClient.fetchMemes(MAX_MEMES);
-        memeRepository.saveAll(memes);
+
+        memes.forEach(meme -> meme.setSource(useImg ? IMGFLIP : REDDIT));
+
+        List<MemeEntity> newMemes = memes.stream()
+                .filter(meme -> !memeRepository.existsByImageUrl(meme.getImageUrl()))
+                .toList();
+
+        memeRepository.saveAll(newMemes);
     }
 
     private void validateMemeDto(MemeDto meme) {
