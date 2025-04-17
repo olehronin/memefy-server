@@ -3,11 +3,11 @@ package com.mfy.memefy.dtos;
 import java.util.List;
 
 /**
- * The {@link MemeApiItem} class
+ * The {@link RedditMemeApiItem} class
  *
  * @author Oleh Ivasiuk
  */
-public class MemeApiItem {
+public class RedditMemeApiItem {
     private String postLink;
     private String subreddit;
     private String title;
@@ -15,10 +15,10 @@ public class MemeApiItem {
     private boolean nsfw;
     private boolean spoiler;
     private String author;
-    private int ups;
+    private Long ups;
     private List<String> preview;
 
-    public MemeApiItem() {
+    public RedditMemeApiItem() {
     }
 
     public String getPostLink() {
@@ -77,11 +77,11 @@ public class MemeApiItem {
         this.author = author;
     }
 
-    public int getUps() {
+    public Long getUps() {
         return ups;
     }
 
-    public void setUps(int ups) {
+    public void setUps(Long ups) {
         this.ups = ups;
     }
 

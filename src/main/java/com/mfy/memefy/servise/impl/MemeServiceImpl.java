@@ -1,18 +1,15 @@
 package com.mfy.memefy.servise.impl;
 
-import com.mfy.memefy.dtos.MemeApiItem;
-import com.mfy.memefy.dtos.MemeApiResponse;
 import com.mfy.memefy.dtos.MemeDto;
 import com.mfy.memefy.dtos.mappers.MemeMapper;
 import com.mfy.memefy.entity.MemeEntity;
 import com.mfy.memefy.repository.MemeRepository;
+import com.mfy.memefy.servise.MemeApiClient;
 import com.mfy.memefy.servise.MemeService;
 import jakarta.annotation.PostConstruct;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
-import org.springframework.data.web.PagedModel;
+import jakarta.persistence.EntityNotFoundException;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
-import org.springframework.web.client.RestTemplate;
 
 import java.util.List;
 import java.util.Random;
@@ -24,74 +21,85 @@ import java.util.Random;
  */
 @Service
 public class MemeServiceImpl implements MemeService {
+    private static final int MAX_MEMES = 10;
+    private static final int MAX_NAME_LENGTH = 100;
+
     private final MemeRepository memeRepository;
     private final MemeMapper memeMapper;
-    private final Random random = new Random();
-    private final RestTemplate restTemplate;
+    private final MemeApiClient imgflipClient;
+    private final MemeApiClient redditClient;
 
-    public MemeServiceImpl(MemeRepository memeRepository, MemeMapper memeMapper) {
+    @Value("${meme.api.use-img:true}")
+    private boolean useImgByDefault;
+
+    public MemeServiceImpl(
+            MemeRepository memeRepository,
+            MemeMapper memeMapper,
+            ImgflipMemeClient imgflipClient,
+            RedditMemeClient redditClient
+    ) {
         this.memeRepository = memeRepository;
         this.memeMapper = memeMapper;
-        this.restTemplate = new RestTemplate();
+        this.imgflipClient = imgflipClient;
+        this.redditClient = redditClient;
     }
 
     @PostConstruct
     public void init() {
-//        memeRepository.deleteAll();
+        fetchPosts(useImgByDefault);
+    }
 
-        MemeApiResponse response = restTemplate.getForObject(
-                "https://meme-api.com/gimme/10",
-                MemeApiResponse.class
-        );
+    @Override
+    public List<MemeDto> getAllMemes(boolean useImg) {
+        fetchPosts(useImg);
+        return memeRepository.findAll().stream()
+                .map(memeMapper::toMemeDto)
+                .toList();
+    }
 
-        if (response != null && response.getMemes() != null) {
-            long id = 1;
-            for (MemeApiItem apiMeme : response.getMemes()) {
-                String imageUrl = apiMeme.getUrl();
-                if (!imageUrl.endsWith(".jpg") && apiMeme.getPreview() != null) {
-                    imageUrl = apiMeme.getPreview().stream()
-                            .filter(url -> url.endsWith(".jpg"))
-                            .findFirst()
-                            .orElse(imageUrl);
-                }
+    @Override
+    public MemeDto getMemeById(Long id) {
+        return memeMapper.toMemeDto(getMemeEntityById(id));
+    }
 
-                String name = apiMeme.getTitle().length() > 100
-                        ? apiMeme.getTitle().substring(0, 100)
-                        : apiMeme.getTitle();
-                long likes = random.nextLong(100);
+    @Override
+    public MemeDto updateMeme(Long id, MemeDto newMeme) {
+        validateMemeDto(newMeme);
 
-                memeRepository.save(new MemeEntity(name, imageUrl, likes));
-            }
+        MemeEntity meme = getMemeEntityById(id);
+        meme.setName(newMeme.getName());
+        meme.setImageUrl(newMeme.getImageUrl());
+        meme.setLikes(newMeme.getLikes());
+
+        MemeEntity updated = memeRepository.save(meme);
+        return memeMapper.toMemeDto(updated);
+    }
+
+    @Override
+    public MemeEntity getMemeEntityById(Long id) {
+        return memeRepository.findById(id)
+                .orElseThrow(() -> new EntityNotFoundException("Meme Entity with id `%s` not found".formatted(id)));
+    }
+
+    private void fetchPosts(boolean useImg) {
+        memeRepository.deleteAll();
+        memeRepository.resetSequence();
+
+        List<MemeEntity> memes = useImg
+                ? imgflipClient.fetchMemes(MAX_MEMES)
+                : redditClient.fetchMemes(MAX_MEMES);
+        memeRepository.saveAll(memes);
+    }
+
+    private void validateMemeDto(MemeDto meme) {
+        if (meme.getName() == null || meme.getName().length() < 3 || meme.getName().length() > MAX_NAME_LENGTH) {
+            throw new IllegalArgumentException("Name must be 3–100 characters");
         }
-    }
-
-    @Override
-    public List<MemeEntity> getAllMemes() {
-        return memeRepository.findAll();
-    }
-
-    @Override
-    public MemeEntity getMemeById(Long id) {
-        return memeRepository.findById(id).orElse(null);
-    }
-
-    @Override
-    public PagedModel<MemeDto> getPageableMemes(Pageable pageable) {
-        Page<MemeEntity> memes = memeRepository.findAll(pageable);
-        Page<MemeDto> pollDtos = memes.map(memeMapper::toMemeDto);
-
-        return new PagedModel<>(pollDtos);
-    }
-
-    @Override
-    public MemeEntity updateMeme(Long id, MemeEntity updatedMeme) {
-        MemeEntity meme = memeRepository.findById(id).orElse(null);
-        if (meme != null) {
-            meme.setName(updatedMeme.getName());
-            meme.setImageUrl(updatedMeme.getImageUrl());
-            meme.setLikes(updatedMeme.getLikes());
-            return memeRepository.save(meme);
+        if (meme.getImageUrl() == null || !meme.getImageUrl().matches("^https?://.*\\.jpg$")) {
+            throw new IllegalArgumentException("Image URL must be a valid JPG link");
         }
-        return null;
+        if (meme.getLikes() < 0 || meme.getLikes() > 99) {
+            throw new IllegalArgumentException("Likes must be between 0 and 99");
+        }
     }
 }

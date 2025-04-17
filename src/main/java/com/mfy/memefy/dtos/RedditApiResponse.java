@@ -3,18 +3,18 @@ package com.mfy.memefy.dtos;
 import java.util.List;
 
 /**
- * The {@link MemeApiResponse} class
+ * The {@link RedditApiResponse} class
  *
  * @author Oleh Ivasiuk
  */
-public class MemeApiResponse {
+public class RedditApiResponse {
     private int count;
-    private List<MemeApiItem> memes;
+    private List<RedditMemeApiItem> memes;
 
-    public MemeApiResponse() {
+    public RedditApiResponse() {
     }
 
-    public MemeApiResponse(int count, List<MemeApiItem> memes) {
+    public RedditApiResponse(int count, List<RedditMemeApiItem> memes) {
         this.count = count;
         this.memes = memes;
     }
@@ -27,11 +27,11 @@ public class MemeApiResponse {
         this.count = count;
     }
 
-    public List<MemeApiItem> getMemes() {
+    public List<RedditMemeApiItem> getMemes() {
         return memes;
     }
 
-    public void setMemes(List<MemeApiItem> memes) {
+    public void setMemes(List<RedditMemeApiItem> memes) {
         this.memes = memes;
     }
 }
