@@ -65,7 +65,7 @@ public class MemeServiceImpl implements MemeService {
     }
 
     @Override
-    public MemeDto updateMeme(Long id, MemeDto newMeme) {
+    public MemeDto patchMeme(Long id, MemeDto newMeme) {
         validateMemeDto(newMeme);
 
         MemeEntity meme = getMemeEntityById(id);

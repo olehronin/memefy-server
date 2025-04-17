@@ -46,8 +46,16 @@ public class MemeController {
         return memeService.getMemeById(id);
     }
 
-    @PutMapping("/{id}")
-    public MemeDto updateMeme(@PathVariable Long id, @RequestBody MemeDto meme) {
-        return memeService.updateMeme(id, meme);
+    @PatchMapping("/{id}")
+    public ResponseEntity<Response> patchMeme(@PathVariable Long id, @RequestBody MemeDto meme, HttpServletRequest request) {
+        try {
+            MemeDto updatedMeme = memeService.patchMeme(id, meme);
+            return ResponseEntity.ok(RequestUtils.getResponse(request, updatedMeme,
+                    "Meme successfully updated", HttpStatus.OK)
+            );
+        } catch (Exception ex) {
+            return ResponseEntity.internalServerError().body(RequestUtils.getResponse(
+                    request, Collections.emptyMap(), ex.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR));
+        }
     }
 }

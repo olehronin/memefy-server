@@ -32,7 +32,7 @@ public class RedditMemeClient implements MemeApiClient {
         return response.getMemes().stream()
                 .map(m -> new MemeEntity(
                         truncate(m.getTitle(), 100),
-                        m.getUrl(),
+                        m.getPreview().getLast(),
                         random.nextLong(100)))
                 .toList();
     }

@@ -16,7 +16,7 @@ public interface MemeService {
 
     MemeDto getMemeById(Long id);
 
-    MemeDto updateMeme(Long id, MemeDto newMeme);
+    MemeDto patchMeme(Long id, MemeDto meme);
 
     MemeEntity getMemeEntityById(Long id);
 }
