@@ -19,16 +19,12 @@ import java.util.List;
 @Configuration
 public class WebConfig {
 
-    @Value("${app.cors.allowedOrigins:http://localhost:3000}")
-    private String allowedOrigins;
-
     @Bean
     public CorsFilter corsFilter() {
         UrlBasedCorsConfigurationSource urlBasedCorsConfigurationSource = new UrlBasedCorsConfigurationSource();
         CorsConfiguration corsConfiguration = new CorsConfiguration();
         corsConfiguration.setAllowCredentials(true);
-        corsConfiguration.setAllowedOrigins(Arrays.asList(allowedOrigins.split(",")));
-//        corsConfiguration.setAllowedOrigins(List.of("http://localhost:3000", "http://192.168.0.120:3000", "http://localhost:4173", "http://192.168.0.120:4173"));
+        corsConfiguration.setAllowedOrigins(List.of("http://localhost:3000", "http://192.168.0.120:3000", "http://localhost:4173", "http://192.168.0.120:4173", "https://memefy.up.railway.app"));
         corsConfiguration.setAllowedHeaders(List.of("Authorization", "Content-Type", "Access-Control-Allow-Origin", "X-Requested-With", "Accept"));
         corsConfiguration.setExposedHeaders(List.of("Authorization", "Content-Type"));
         corsConfiguration.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
