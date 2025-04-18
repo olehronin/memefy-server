@@ -8,7 +8,9 @@ import com.mfy.memefy.servise.MemeApiClient;
 import com.mfy.memefy.servise.MemeService;
 import jakarta.annotation.PostConstruct;
 import jakarta.persistence.EntityNotFoundException;
-import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PagedModel;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -23,40 +25,33 @@ public class MemeServiceImpl implements MemeService {
     private static final int MAX_MEMES = 10;
     private static final int MAX_NAME_LENGTH = 100;
     public static final String IMGFLIP = "IMGFLIP";
-    public static final String REDDIT = "REDDIT";
 
     private final MemeRepository memeRepository;
     private final MemeMapper memeMapper;
     private final MemeApiClient imgflipClient;
-    private final MemeApiClient redditClient;
-
-    @Value("${meme.api.use-img:true}")
-    private boolean useImgByDefault;
 
     public MemeServiceImpl(
             MemeRepository memeRepository,
             MemeMapper memeMapper,
-            ImgflipMemeClient imgflipClient,
-            RedditMemeClient redditClient
+            ImgflipMemeClient imgflipClient
     ) {
         this.memeRepository = memeRepository;
         this.memeMapper = memeMapper;
         this.imgflipClient = imgflipClient;
-        this.redditClient = redditClient;
     }
 
     @PostConstruct
     public void init() {
-        fetchPostsIfEmpty(useImgByDefault);
+        fetchPostsIfEmpty();
     }
 
     @Override
-    public List<MemeDto> getAllMemes(boolean useImg) {
-        String source = useImg ? IMGFLIP : REDDIT;
-        fetchPostsIfEmpty(useImg);
-        return memeRepository.findAllBySource(source).stream()
-                .map(memeMapper::toMemeDto)
-                .toList();
+    public PagedModel<MemeDto> getPageableMemes(Pageable pageable) {
+        fetchPostsIfEmpty();
+
+        Page<MemeEntity> memes = memeRepository.findAll(pageable);
+        Page<MemeDto> pollDtos = memes.map(memeMapper::toMemeDto);
+        return new PagedModel<>(pollDtos);
     }
 
     @Override
@@ -83,16 +78,13 @@ public class MemeServiceImpl implements MemeService {
                 .orElseThrow(() -> new EntityNotFoundException("Meme Entity with id `%s` not found".formatted(id)));
     }
 
-    private void fetchPostsIfEmpty(boolean useImg) {
-        if (memeRepository.countBySource(useImg ? IMGFLIP : REDDIT) >= MAX_MEMES) {
+    private void fetchPostsIfEmpty() {
+        if (memeRepository.countBySource(IMGFLIP) >= MAX_MEMES) {
             return;
         }
 
-        List<MemeEntity> memes = useImg
-                ? imgflipClient.fetchMemes(MAX_MEMES)
-                : redditClient.fetchMemes(MAX_MEMES);
-
-        memes.forEach(meme -> meme.setSource(useImg ? IMGFLIP : REDDIT));
+        List<MemeEntity> memes = imgflipClient.fetchMemes(MAX_MEMES);
+        memes.forEach(meme -> meme.setSource(IMGFLIP));
 
         List<MemeEntity> newMemes = memes.stream()
                 .filter(meme -> !memeRepository.existsByImageUrl(meme.getImageUrl()))
@@ -105,8 +97,8 @@ public class MemeServiceImpl implements MemeService {
         if (meme.getName() == null || meme.getName().length() < 3 || meme.getName().length() > MAX_NAME_LENGTH) {
             throw new IllegalArgumentException("Name must be 3–100 characters");
         }
-        if (meme.getImageUrl() == null || !meme.getImageUrl().matches("^https?://.*\\.jpg$")) {
-            throw new IllegalArgumentException("Image URL must be a valid JPG link");
+        if (meme.getImageUrl() == null || !meme.getImageUrl().matches("^https?://.*\\.(jpg|jpeg)(\\?.*)?$")) {
+            throw new IllegalArgumentException("Image URL must be a valid JPG or JPEG link");
         }
         if (meme.getLikes() < 0 || meme.getLikes() > 99) {
             throw new IllegalArgumentException("Likes must be between 0 and 99");

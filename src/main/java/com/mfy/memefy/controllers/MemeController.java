@@ -1,16 +1,20 @@
 package com.mfy.memefy.controllers;
 
+import com.mfy.memefy.domain.MemeSortField;
 import com.mfy.memefy.domain.Response;
 import com.mfy.memefy.dtos.MemeDto;
 import com.mfy.memefy.servise.MemeService;
 import com.mfy.memefy.utils.RequestUtils;
 import jakarta.servlet.http.HttpServletRequest;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PagedModel;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Collections;
-import java.util.List;
 
 /**
  * The {@link MemeController} class
@@ -28,13 +32,17 @@ public class MemeController {
 
     @GetMapping()
     public ResponseEntity<Response> getAllMemes(
-            @RequestParam(defaultValue = "true") boolean useImg,
+            @RequestParam(defaultValue = "id") String sortBy,
+            @RequestParam(defaultValue = "DESC") Sort.Direction direction,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
             HttpServletRequest request) {
         try {
-            List<MemeDto> memes = memeService.getAllMemes(useImg);
-            return ResponseEntity.ok(RequestUtils.getResponse(request, memes,
-                    "Memes found successfully", HttpStatus.OK)
-            );
+            MemeSortField sortField = MemeSortField.fromFieldName(sortBy);
+            Pageable pageable = PageRequest.of(page, size, Sort.by(direction, sortField.getFieldName()));
+            PagedModel<MemeDto> pageableMemes = memeService.getPageableMemes(pageable);
+            return ResponseEntity.ok(RequestUtils.getResponse(request, pageableMemes,
+                    "Memes found successfully", HttpStatus.OK));
         } catch (Exception ex) {
             return ResponseEntity.internalServerError().body(RequestUtils.getResponse(
                     request, Collections.emptyMap(), ex.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR));

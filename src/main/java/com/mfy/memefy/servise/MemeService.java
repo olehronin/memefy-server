@@ -2,8 +2,8 @@ package com.mfy.memefy.servise;
 
 import com.mfy.memefy.dtos.MemeDto;
 import com.mfy.memefy.entity.MemeEntity;
-
-import java.util.List;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PagedModel;
 
 /**
  * The {@link MemeService} class
@@ -12,7 +12,7 @@ import java.util.List;
  */
 public interface MemeService {
 
-    List<MemeDto> getAllMemes(boolean useImg);
+    PagedModel<MemeDto> getPageableMemes(Pageable pageable);
 
     MemeDto getMemeById(Long id);
 
