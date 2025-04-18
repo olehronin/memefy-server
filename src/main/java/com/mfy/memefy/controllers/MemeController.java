@@ -14,8 +14,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.Collections;
-
 /**
  * The {@link MemeController} class
  *
@@ -30,23 +28,18 @@ public class MemeController {
         this.memeService = memeService;
     }
 
-    @GetMapping()
+    @GetMapping
     public ResponseEntity<Response> getAllMemes(
             @RequestParam(defaultValue = "id") String sortBy,
             @RequestParam(defaultValue = "DESC") Sort.Direction direction,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
             HttpServletRequest request) {
-        try {
-            MemeSortField sortField = MemeSortField.fromFieldName(sortBy);
-            Pageable pageable = PageRequest.of(page, size, Sort.by(direction, sortField.getFieldName()));
-            PagedModel<MemeDto> pageableMemes = memeService.getPageableMemes(pageable);
-            return ResponseEntity.ok(RequestUtils.getResponse(request, pageableMemes,
-                    "Memes found successfully", HttpStatus.OK));
-        } catch (Exception ex) {
-            return ResponseEntity.internalServerError().body(RequestUtils.getResponse(
-                    request, Collections.emptyMap(), ex.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR));
-        }
+        MemeSortField sortField = MemeSortField.fromFieldName(sortBy);
+        Pageable pageable = PageRequest.of(page, size, Sort.by(direction, sortField.getFieldName()));
+        PagedModel<MemeDto> pageableMemes = memeService.getPageableMemes(pageable);
+        return ResponseEntity.ok(RequestUtils.getResponse(request, pageableMemes,
+                "Memes found successfully", HttpStatus.OK));
     }
 
     @GetMapping("/{id}")
@@ -56,14 +49,8 @@ public class MemeController {
 
     @PatchMapping("/{id}")
     public ResponseEntity<Response> patchMeme(@PathVariable Long id, @RequestBody MemeDto meme, HttpServletRequest request) {
-        try {
-            MemeDto updatedMeme = memeService.patchMeme(id, meme);
-            return ResponseEntity.ok(RequestUtils.getResponse(request, updatedMeme,
-                    "Meme successfully updated", HttpStatus.OK)
-            );
-        } catch (Exception ex) {
-            return ResponseEntity.internalServerError().body(RequestUtils.getResponse(
-                    request, Collections.emptyMap(), ex.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR));
-        }
+        MemeDto updatedMeme = memeService.patchMeme(id, meme);
+        return ResponseEntity.ok(RequestUtils.getResponse(request, updatedMeme,
+                "Meme successfully updated", HttpStatus.OK));
     }
 }
