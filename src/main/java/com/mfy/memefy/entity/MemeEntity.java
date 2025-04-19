@@ -25,7 +25,7 @@ public class MemeEntity extends BaseAuditable {
     @Column(name = "likes", nullable = false)
     private Long likes;
 
-    @Column(name = "source", nullable = false)
+    @Column(name = "source")
     private String source;
 
     public MemeEntity() {
