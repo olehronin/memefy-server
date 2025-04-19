@@ -12,6 +12,8 @@ import org.springframework.stereotype.Component;
 import java.io.IOException;
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * The {@link RateLimitFilter} class
@@ -20,11 +22,14 @@ import java.time.LocalDateTime;
  */
 @Component
 public class RateLimitFilter implements Filter {
-    private final Bucket bucket;
+    private final Map<String, Bucket> buckets = new ConcurrentHashMap<>();
 
-    public RateLimitFilter() {
-        Bandwidth limit = Bandwidth.classic(10, Refill.greedy(10, Duration.ofMinutes(1)));
-        this.bucket = Bucket.builder().addLimit(limit).build();
+    private Bucket resolveBucket(String ip) {
+        return buckets.computeIfAbsent(ip, k ->
+                Bucket.builder()
+                        .addLimit(Bandwidth.classic(60, Refill.greedy(60, Duration.ofMinutes(1))))
+                        .build()
+        );
     }
 
     @Override
@@ -33,14 +38,27 @@ public class RateLimitFilter implements Filter {
         HttpServletRequest httpRequest = (HttpServletRequest) request;
         HttpServletResponse httpResponse = (HttpServletResponse) response;
 
+        String ip = getClientIP(httpRequest);
+        Bucket bucket = resolveBucket(ip);
+
         if (bucket.tryConsume(1)) {
             chain.doFilter(request, response);
         } else {
             httpResponse.setStatus(HttpStatus.TOO_MANY_REQUESTS.value());
+            httpResponse.setContentType("application/json");
             httpResponse.getWriter().write(
                     "{\"code\": 429, \"message\": \"Too many requests\", \"status\": \"TOO_MANY_REQUESTS\", " +
-                            "\"path\": \"" + httpRequest.getRequestURI() + "\", \"time\": \"" + LocalDateTime.now() + "\"}"
+                            "\"path\": \"" + httpRequest.getRequestURI() + "\", \"ip\": \"" + ip + "\", " +
+                            "\"time\": \"" + LocalDateTime.now() + "\"}"
             );
         }
+    }
+
+    private String getClientIP(HttpServletRequest request) {
+        String xfHeader = request.getHeader("X-Forwarded-For");
+        if (xfHeader == null) {
+            return request.getRemoteAddr();
+        }
+        return xfHeader.split(",")[0];
     }
 }
