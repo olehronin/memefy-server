@@ -24,7 +24,6 @@ import java.util.List;
 public class MemeServiceImpl implements MemeService {
     private static final int MAX_MEMES = 10;
     private static final int MAX_NAME_LENGTH = 100;
-    public static final String IMGFLIP = "IMGFLIP";
 
     private final MemeRepository memeRepository;
     private final MemeMapper memeMapper;
@@ -79,12 +78,11 @@ public class MemeServiceImpl implements MemeService {
     }
 
     private void fetchPostsIfEmpty() {
-        if (memeRepository.countBySource(IMGFLIP) >= MAX_MEMES) {
+        if (memeRepository.count() >= MAX_MEMES) {
             return;
         }
 
         List<MemeEntity> memes = imgflipClient.fetchMemes(MAX_MEMES);
-        memes.forEach(meme -> meme.setSource(IMGFLIP));
 
         List<MemeEntity> newMemes = memes.stream()
                 .filter(meme -> !memeRepository.existsByImageUrl(meme.getImageUrl()))

@@ -10,7 +10,5 @@ import org.springframework.data.jpa.repository.JpaRepository;
  */
 public interface MemeRepository extends JpaRepository<MemeEntity, Long> {
 
-    int countBySource(String source);
-
     boolean existsByImageUrl(String imageUrl);
 }
