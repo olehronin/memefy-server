@@ -1,8 +1,5 @@
 [phases.setup]
 nixPkgs = ['jdk21', 'maven']
 
-[phases.build]
-cmds = ['chmod +x mvnw', './mvnw clean package -DskipTests']
-
 [phases.dockerfile]
 enabled = true
