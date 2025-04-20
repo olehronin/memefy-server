@@ -4,5 +4,5 @@ nixPkgs = ['jdk21', 'maven']
 [phases.build]
 cmds = ['chmod +x mvnw', './mvnw clean package -DskipTests']
 
-[start]
-cmd = 'java $JAVA_OPTS -jar target/memefy-0.0.1-SNAPSHOT.jar'
+[phases.dockerfile]
+enabled = true
