@@ -1,14 +1,13 @@
 package com.mfy.memefy.controllers;
 
-import com.mfy.memefy.domain.MemeSortField;
 import com.mfy.memefy.domain.Response;
 import com.mfy.memefy.dtos.MemeDto;
 import com.mfy.memefy.servise.MemeService;
 import com.mfy.memefy.utils.RequestUtils;
 import jakarta.servlet.http.HttpServletRequest;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.data.web.PagedModel;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -29,22 +28,19 @@ public class MemeController {
     }
 
     @GetMapping
-    public ResponseEntity<Response> getAllMemes(
-            @RequestParam(defaultValue = "id") String sortBy,
-            @RequestParam(defaultValue = "DESC") Sort.Direction direction,
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size,
+    public ResponseEntity<Response> getPageableMemes(
+            @PageableDefault(sort = "id", direction = Sort.Direction.DESC) Pageable pageable,
             HttpServletRequest request) {
-        MemeSortField sortField = MemeSortField.fromFieldName(sortBy);
-        Pageable pageable = PageRequest.of(page, size, Sort.by(direction, sortField.getFieldName()));
         PagedModel<MemeDto> pageableMemes = memeService.getPageableMemes(pageable);
         return ResponseEntity.ok(RequestUtils.getResponse(request, pageableMemes,
                 "Memes found successfully", HttpStatus.OK));
     }
 
     @GetMapping("/{id}")
-    public MemeDto getMemeById(@PathVariable Long id) {
-        return memeService.getMemeById(id);
+    public ResponseEntity<Response> getMemeById(@PathVariable Long id, HttpServletRequest request) {
+        MemeDto meme = memeService.getMemeById(id);
+        return ResponseEntity.ok(RequestUtils.getResponse(request, meme,
+                "Meme found successfully", HttpStatus.OK));
     }
 
     @PatchMapping("/{id}")

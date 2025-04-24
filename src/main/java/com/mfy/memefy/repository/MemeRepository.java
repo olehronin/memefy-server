@@ -2,6 +2,9 @@ package com.mfy.memefy.repository;
 
 import com.mfy.memefy.entity.MemeEntity;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+
+import java.util.Set;
 
 /**
  * The {@link MemeRepository} interface
@@ -10,5 +13,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
  */
 public interface MemeRepository extends JpaRepository<MemeEntity, Long> {
 
-    boolean existsByImageUrl(String imageUrl);
+    @Query("SELECT m.imageUrl FROM MemeEntity m")
+    Set<String> findAllImageUrls();
+
 }

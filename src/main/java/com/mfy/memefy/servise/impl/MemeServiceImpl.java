@@ -4,16 +4,21 @@ import com.mfy.memefy.dtos.MemeDto;
 import com.mfy.memefy.dtos.mappers.MemeMapper;
 import com.mfy.memefy.entity.MemeEntity;
 import com.mfy.memefy.repository.MemeRepository;
-import com.mfy.memefy.servise.MemeApiClient;
 import com.mfy.memefy.servise.MemeService;
 import jakarta.annotation.PostConstruct;
 import jakarta.persistence.EntityNotFoundException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PagedModel;
 import org.springframework.stereotype.Service;
 
+import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 /**
  * The {@link MemeServiceImpl} class
@@ -22,35 +27,41 @@ import java.util.List;
  */
 @Service
 public class MemeServiceImpl implements MemeService {
-    private static final int MAX_MEMES = 10;
-    private static final int MAX_NAME_LENGTH = 100;
+    public static final int MAX_NAME_LENGTH = 1024;
 
     private final MemeRepository memeRepository;
     private final MemeMapper memeMapper;
-    private final MemeApiClient imgflipClient;
+    private final RedditMemeClient redditMemeClient;
+    private final List<String> subreddits;
+    private final int maxMemes;
+    private final int redditFetchLimit;
+    private final Logger log = LoggerFactory.getLogger(MemeServiceImpl.class);
 
     public MemeServiceImpl(
             MemeRepository memeRepository,
             MemeMapper memeMapper,
-            ImgflipMemeClient imgflipClient
-    ) {
+            RedditMemeClient redditMemeClient,
+            @Value("${memefy.subreddits:wholesomememes,memes,meme,dankmemes,PrequelMemes}") String[] subreddits,
+            @Value("${memefy.max-memes:100}") int maxMemes,
+            @Value("${memefy.reddit-fetch-limit:50}") int redditFetchLimit) {
         this.memeRepository = memeRepository;
         this.memeMapper = memeMapper;
-        this.imgflipClient = imgflipClient;
+        this.redditMemeClient = redditMemeClient;
+        this.subreddits = Arrays.asList(subreddits);
+        this.maxMemes = maxMemes;
+        this.redditFetchLimit = redditFetchLimit;
     }
 
     @PostConstruct
     public void init() {
-        fetchPostsIfEmpty();
+        fetchAndSaveMemes();
     }
 
     @Override
     public PagedModel<MemeDto> getPageableMemes(Pageable pageable) {
-        fetchPostsIfEmpty();
-
         Page<MemeEntity> memes = memeRepository.findAll(pageable);
-        Page<MemeDto> pollDtos = memes.map(memeMapper::toMemeDto);
-        return new PagedModel<>(pollDtos);
+        Page<MemeDto> memeDtos = memes.map(memeMapper::toMemeDto);
+        return new PagedModel<>(memeDtos);
     }
 
     @Override
@@ -77,29 +88,62 @@ public class MemeServiceImpl implements MemeService {
                 .orElseThrow(() -> new EntityNotFoundException("Meme Entity with id `%s` not found".formatted(id)));
     }
 
-    private void fetchPostsIfEmpty() {
-        if (memeRepository.count() >= MAX_MEMES) {
+    private void fetchAndSaveMemes() {
+        long startTime = System.currentTimeMillis();
+        long currentCount = memeRepository.count();
+        if (currentCount >= maxMemes) {
+            log.info("Database already contains {} memes, skipping initialization", currentCount);
             return;
         }
 
-        List<MemeEntity> memes = imgflipClient.fetchMemes(MAX_MEMES);
+        int memesToFetch = (int) (maxMemes - currentCount);
+        log.info("Need to fetch {} memes", memesToFetch);
 
-        List<MemeEntity> newMemes = memes.stream()
-                .filter(meme -> !memeRepository.existsByImageUrl(meme.getImageUrl()))
+        Set<String> existingImageUrls = memeRepository.findAllImageUrls();
+        Set<MemeEntity> allFetchedMemes = new HashSet<>();
+
+        for (String subreddit : subreddits) {
+            if (allFetchedMemes.size() >= memesToFetch) {
+                break;
+            }
+
+            log.debug("Fetching memes from subreddit: {}", subreddit);
+            List<MemeEntity> fetchedMemes = redditMemeClient.fetchMemes(subreddit, redditFetchLimit);
+            List<MemeEntity> uniqueMemes = filterUniqueMemes(fetchedMemes, existingImageUrls, allFetchedMemes);
+            allFetchedMemes.addAll(uniqueMemes);
+            log.info("Fetched {} unique memes from subreddit {}", uniqueMemes.size(), subreddit);
+        }
+
+        List<MemeEntity> memesToSave = allFetchedMemes.stream()
+                .limit(memesToFetch)
                 .toList();
+        memeRepository.saveAll(memesToSave);
+        log.info("Saved {} memes to database in {}ms", memesToSave.size(), System.currentTimeMillis() - startTime);
 
-        memeRepository.saveAll(newMemes);
+        if (memesToSave.size() < memesToFetch) {
+            log.warn("Could only fetch {} memes out of requested {}", memesToSave.size(), memesToFetch);
+        }
+    }
+
+    private List<MemeEntity> filterUniqueMemes(
+            List<MemeEntity> fetchedMemes,
+            Set<String> existingImageUrls,
+            Set<MemeEntity> allFetchedMemes) {
+        return fetchedMemes.stream()
+                .filter(meme -> !existingImageUrls.contains(meme.getImageUrl()))
+                .filter(meme -> !allFetchedMemes.contains(meme))
+                .toList();
     }
 
     private void validateMemeDto(MemeDto meme) {
         if (meme.getName() == null || meme.getName().length() < 3 || meme.getName().length() > MAX_NAME_LENGTH) {
-            throw new IllegalArgumentException("Name must be 3–100 characters");
+            throw new IllegalArgumentException("Name must be 3–1024 characters");
         }
-        if (meme.getImageUrl() == null || !meme.getImageUrl().matches("^https?://.*\\.(jpg|jpeg)(\\?.*)?$")) {
-            throw new IllegalArgumentException("Image URL must be a valid JPG or JPEG link");
+        if (meme.getImageUrl() == null || !meme.getImageUrl().matches("^https?://.*\\.(jpg|jpeg|gif|png)(\\?.*)?$")) {
+            throw new IllegalArgumentException("Image URL must be a valid JPG, JPEG, GIF, or PNG link");
         }
-        if (meme.getLikes() < 0 || meme.getLikes() > 99) {
-            throw new IllegalArgumentException("Likes must be between 0 and 99");
+        if (meme.getLikes() < 0) {
+            throw new IllegalArgumentException("Likes should not be less than 0");
         }
     }
 }

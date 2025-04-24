@@ -11,5 +11,5 @@ import java.util.List;
  */
 public interface MemeApiClient {
 
-    List<MemeEntity> fetchMemes(int limit);
+    List<MemeEntity> fetchMemes(String subreddit, int limit);
 }

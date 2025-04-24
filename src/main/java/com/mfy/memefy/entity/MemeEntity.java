@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 import com.mfy.memefy.entity.base.BaseAuditable;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.Index;
 import jakarta.persistence.Table;
 
 /**
@@ -12,11 +13,15 @@ import jakarta.persistence.Table;
  * @author Oleh Ivasiuk
  */
 @Entity
-@Table(name = "memes")
+@Table(name = "memes", indexes = {
+        @Index(name = "idx_meme_image_url", columnList = "image_url"),
+        @Index(name = "idx_meme_likes", columnList = "likes"),
+        @Index(name = "idx_meme_name", columnList = "name")
+})
 @JsonInclude(JsonInclude.Include.NON_DEFAULT)
 public class MemeEntity extends BaseAuditable {
 
-    @Column(name = "name", nullable = false, length = 100)
+    @Column(name = "name", nullable = false, length = 1024)
     private String name;
 
     @Column(name = "image_url", nullable = false, length = 512)
